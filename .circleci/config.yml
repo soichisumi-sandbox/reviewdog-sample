@@ -1,0 +1,76 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+#
+# for go modules support, see: https://circleci.com/blog/go-v1.11-modules-and-circleci/
+
+# About Using multiple docker image
+# see: https://circleci.com/docs/2.0/executor-types/#using-multiple-docker-images
+
+version: 2
+reference:
+  work_dir: &work_dir /go/src/tmp
+
+  cache_path: &cache_path /go/pkg/mod/cache
+
+  golang_container_config: &golang_container_config
+    docker:
+      - image: circleci/golang:1.12.1
+        environment:
+          GO111MODULE: "on"
+          GOENV: "test"
+      - image: mongo:4.1.9
+        command: [mongod]
+
+    working_directory: *work_dir
+
+  cache_params: &cache_params
+    key: mod-adamant-thoth-{{ checksum "go.mod" }}
+    paths:
+      - *cache_path
+
+  restore_module_cache: &restore_module_cache
+    restore_cache:
+      name: Restore go module cache
+      <<: *cache_params
+
+  download_mods: &download_mods
+    run:
+      name: Download modules
+      command: go mod download
+
+  save_module_cache: &save_module_cache
+    save_cache: &save_cache
+      name: Save go modules cache
+      <<: *cache_params
+
+  test_go: &test_go
+    run:
+      name: Testing Go Sources
+      command: |
+        go test -v -race ./...
+
+  install_lint: &install_lint
+    run:
+      name: Install Golangci-Lint
+      command: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.15.0
+
+  install_reviewdog: &install_reviewdog
+    run:
+      name: Install ReviewDog
+      command: GO111MODULE=off go get -u github.com/reviewdog/reviewdog/cmd/reviewdog
+jobs:
+  test:
+    <<: *golang_container_config
+    steps:
+      - checkout
+      - *restore_module_cache
+      - *download_mods
+      - *save_module_cache
+      - *test_go
+      -
+workflows:
+  version: 2
+  test_-->_deploy:
+    jobs:
+      - test
