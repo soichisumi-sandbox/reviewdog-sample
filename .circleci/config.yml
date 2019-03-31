@@ -19,8 +19,7 @@ reference:
         environment:
           GO111MODULE: "on"
           GOENV: "test"
-      - image: mongo:4.1.9
-        command: [mongod]
+          REVIEWDOG_VERSION: "0.9.11"
 
     working_directory: *work_dir
 
@@ -58,17 +57,24 @@ reference:
   install_reviewdog: &install_reviewdog
     run:
       name: Install ReviewDog
-      command: GO111MODULE=off go get -u github.com/reviewdog/reviewdog/cmd/reviewdog
+      command: curl -fSL https://github.com/reviewdog/reviewdog/releases/download/$REVIEWDOG_VERSION/reviewdog_linux_amd64 -o reviewdog && chmod +x ./reviewdog
+
+  post_review: &post_review
+    run:
+      name: Post Reviews
+      command: go vet ./... 2>&1 | ./reviewdog -f=govet -reporter=github-pr-check
 jobs:
   test:
     <<: *golang_container_config
     steps:
       - checkout
+      - *install_lint
+      - *install_reviewdog
       - *restore_module_cache
       - *download_mods
       - *save_module_cache
       - *test_go
-      -
+      - *post_review
 workflows:
   version: 2
   test_-->_deploy:
