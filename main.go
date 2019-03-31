@@ -1,1 +1,7 @@
-package reviewdog_sample
+package main
+
+import "fmt"
+
+func main(){
+	fmt.Println("sample code")
+}
